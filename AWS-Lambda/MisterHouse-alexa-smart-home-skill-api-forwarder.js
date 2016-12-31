@@ -15,7 +15,7 @@ exports.handler = function(event, context) {
 
     log('Input', event);
 
-    if ((event.header.namespace === 'Alexa.ConnectedHome.Control') || (event.header.namespace === 'Alexa.ConnectedHome.Discovery')) {
+    if ((event.header.namespace === 'Alexa.ConnectedHome.Control') || (event.header.namespace === 'Alexa.ConnectedHome.Discovery') || (event.header.namespace === 'Alexa.ConnectedHome.System')) {
         handleNewRequest(event, context);
     } else {
         log('Err', 'No supported namespace: ' + event.header.namespace);
@@ -48,7 +48,7 @@ function handleNewRequest(event, context) {
         /**
          * Craft an error response back to Alexa Smart Home Skill
          */
-        context.fail(generateControlError(event.header.name, 'DEPENDENT_SERVICE_UNAVAILABLE', 'Unable to connect to server'));
+        context.fail(generateError(event, 'DependentServiceUnavailableError', event.header.namespace + ':Unable to connect to server'));
     };
 
     /**
@@ -90,18 +90,16 @@ function log(title, msg) {
     console.log('*************** ' + title + ' End*************');
 }
 
-function generateControlError(name, code, description) {
+function generateError(event, code, description) {
     var headers = {
-        namespace: 'Control',
-        name: name,
-        payloadVersion: '1'
+        namespace: "Alexa.ConnectedHome.Control",
+        name: code,
+        payloadVersion: '2',
+        messageId: 'e1929526-66fb-4f99-869a-13c58bee88ef'
     };
 
     var payload = {
-        exception: {
-            code: code,
-            description: description
-        }
+        dependentServiceName: description
     };
 
     var result = {
