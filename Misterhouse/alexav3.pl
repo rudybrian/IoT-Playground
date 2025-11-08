@@ -98,6 +98,21 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                     retrievable         => JSON::false,
                                     proactivelyReported => JSON::true
                                 }
+                            },
+                            {
+                                interface  => "Alexa.EndpointHealth",
+                                version    => "3.1",
+                                type       => "AlexaInterface",
+                                properties => {
+                                    supported           => [ { name => "connectivity" } ],
+                                    retrievable         => JSON::false,
+                                    proactivelyReported => JSON::true
+                                }
+                            },
+                            {
+                                interface => "Alexa",
+                                version   => "3",
+                                type      => "AlexaInterface"
                             }
                         ];
                     }
@@ -112,6 +127,21 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                     retrievable         => JSON::false,
                                     proactivelyReported => JSON::true
                                 }
+                            },
+                            {
+                                interface  => "Alexa.EndpointHealth",
+                                version    => "3.1",
+                                type       => "AlexaInterface",
+                                properties => {
+                                    supported           => [ { name => "connectivity" } ],
+                                    retrievable         => JSON::false,
+                                    proactivelyReported => JSON::true
+                                }
+                            },
+                            {
+                                interface => "Alexa",
+                                version   => "3",
+                                type      => "AlexaInterface"
                             }
                         ];
                     }
@@ -126,6 +156,21 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                     retrievable         => JSON::false,
                                     proactivelyReported => JSON::true
                                 }
+                            },
+                            {
+                                interface  => "Alexa.EndpointHealth",
+                                version    => "3.1",
+                                type       => "AlexaInterface",
+                                properties => {
+                                    supported           => [ { name => "connectivity" } ],
+                                    retrievable         => JSON::false,
+                                    proactivelyReported => JSON::true
+                                }
+                            },
+                            {
+                                interface => "Alexa",
+                                version   => "3",
+                                type      => "AlexaInterface"
                             }
                         ];
                     }
