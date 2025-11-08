@@ -1,24 +1,27 @@
 /**
  * This sample demonstrates a simple driver  built against the Alexa Smart Home Skill Api.
  * For additional details, please refer to the Alexa Smart Home Skill API developer documentation 
- * https://developer.amazon.com/public/solutions/alexa/alexa-skills-kit/overviews/understanding-the-smart-home-skill-api
- */
+ * https://developer.amazon.com/en-US/docs/alexa/smarthome/steps-to-build-a-smart-home-skill.html#create-a-lambda-function
+*/
 var https = require('https');
 var REMOTE_CLOUD_BASE_PATH = '/mh/bin';
-var REMOTE_CLOUD_HOSTNAME = 'my.misterhousehost.com';
+let REMOTE_CLOUD_HOSTNAME = process.env.REMOTE_CLOUD_HOSTNAME;
+let REMOTE_CLOUD_PORT = process.env.REMOTE_CLOUD_PORT;
+let USERNAME = process.env.USERNAME;
+let PASSWORD = process.env.PASSWORD;
 
 /**
  * Main entry point.
  * Incoming events from Alexa Lighting APIs are processed via this method.
  */
-exports.handler = function(event, context) {
+exports.handler = function(request, context) {
 
-    log('Input', event);
+    log('Input', request);
 
-    if ((event.header.namespace === 'Alexa.ConnectedHome.Control') || (event.header.namespace === 'Alexa.ConnectedHome.Discovery') || (event.header.namespace === 'Alexa.ConnectedHome.System')) {
-        handleNewRequest(event, context);
+    if ((request.directive.header.namespace === 'Alexa.PowerController') || (request.directive.header.namespace === 'Alexa.Discovery') || (request.directive.header.namespace === 'Alexa.PercentageController') || (request.directive.header.namespace === 'Alexa.ReportState')) {
+        handleNewRequest(request, context);
     } else {
-        log('Err', 'No supported namespace: ' + event.header.namespace);
+        log('Err', 'No supported namespace: ' + request.directive.header.namespace);
         context.fail('Something went wrong');
     }
 };
@@ -28,15 +31,15 @@ exports.handler = function(event, context) {
  * Forward the request on to MisterHouse and then pass the response back to the
  * Smart Home API
  */
-function handleNewRequest(event, context) {
+function handleNewRequest(request, context) {
 
-    var basePath = REMOTE_CLOUD_BASE_PATH + '/' + 'alexa.pl';
+    var basePath = REMOTE_CLOUD_BASE_PATH + '/' + 'alexav3.pl';
 
     var options = {
         hostname: REMOTE_CLOUD_HOSTNAME,
-        port: 443,
+        port: REMOTE_CLOUD_PORT,
         path: basePath,
-        auth: 'username:password',
+        auth: USERNAME + ':' + PASSWORD,
         method: 'POST',
         headers: {
             accept: '*/*'
@@ -48,7 +51,7 @@ function handleNewRequest(event, context) {
         /**
          * Craft an error response back to Alexa Smart Home Skill
          */
-        context.fail(generateError(event, 'DependentServiceUnavailableError', event.header.namespace + ':Unable to connect to server'));
+        context.fail(generateError(request, 'ENDPOINT_UNREACHABLE', request.directive.header.namespace + ':Unable to connect to server'));
     };
 
     /**
@@ -76,7 +79,7 @@ function handleNewRequest(event, context) {
     });
     
     // post the discovery request to MisterHouse
-    post_req.write(JSON.stringify(event));
+    post_req.write(JSON.stringify(request));
     post_req.end();
 }
 
@@ -90,21 +93,32 @@ function log(title, msg) {
     console.log('*************** ' + title + ' End*************');
 }
 
-function generateError(event, code, description) {
+function generateError(request, code, description) {
     var headers = {
-        namespace: "Alexa.ConnectedHome.Control",
-        name: code,
-        payloadVersion: '2',
-        messageId: 'e1929526-66fb-4f99-869a-13c58bee88ef'
+        namespace: "Alexa",
+        name: "ErrorResponse",
+        payloadVersion: '3',
+        messageId: request.directive.header.messageId + "-R",
+        correlationToken: request.directive.header.correlationToken
+    };
+
+    var endpoint = {
+        endpointId: request.directive.endpoint.endpointId
     };
 
     var payload = {
-        dependentServiceName: description
+        type: code,
+        message: description
     };
 
-    var result = {
+    var event = {
         header: headers,
+        endpoint: endpoint,
         payload: payload
+    };
+   
+    var result = {
+        event: event
     };
 
     return result;
