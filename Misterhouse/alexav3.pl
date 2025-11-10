@@ -28,6 +28,7 @@ my $results = Dumper($HTTP_BODY);
 #my $results = Dumper(%ENV);
 
 #open( FH, '>', "/var/tmp/query_string.txt" ) or die $!;
+#open( FH, '>>', "/var/tmp/query_string.txt" ) or die $!;
 #print FH $results;
 #close(FH);
 
@@ -85,7 +86,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                 type       => "AlexaInterface",
                                 properties => {
                                     supported           => [ { name => "powerState" } ],
-                                    retrievable         => JSON::false,
+                                    retrievable         => JSON::true,
                                     proactivelyReported => JSON::true
                                 }
                             },
@@ -95,7 +96,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                 type       => "AlexaInterface",
                                 properties => {
                                     supported           => [ { name => "percentage" }, { name => "percentageDelta" } ],
-                                    retrievable         => JSON::false,
+                                    retrievable         => JSON::true,
                                     proactivelyReported => JSON::true
                                 }
                             },
@@ -105,7 +106,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                 type       => "AlexaInterface",
                                 properties => {
                                     supported           => [ { name => "connectivity" } ],
-                                    retrievable         => JSON::false,
+                                    retrievable         => JSON::true,
                                     proactivelyReported => JSON::true
                                 }
                             },
@@ -124,7 +125,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                 type       => "AlexaInterface",
                                 properties => {
                                     supported           => [ { name => "powerState" } ],
-                                    retrievable         => JSON::false,
+                                    retrievable         => JSON::true,
                                     proactivelyReported => JSON::true
                                 }
                             },
@@ -134,7 +135,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                 type       => "AlexaInterface",
                                 properties => {
                                     supported           => [ { name => "connectivity" } ],
-                                    retrievable         => JSON::false,
+                                    retrievable         => JSON::true,
                                     proactivelyReported => JSON::true
                                 }
                             },
@@ -153,7 +154,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                 type       => "AlexaInterface",
                                 properties => {
                                     supported           => [ { name => "percentage" }, { name => "percentageDelta" } ],
-                                    retrievable         => JSON::false,
+                                    retrievable         => JSON::true,
                                     proactivelyReported => JSON::true
                                 }
                             },
@@ -163,7 +164,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                                 type       => "AlexaInterface",
                                 properties => {
                                     supported           => [ { name => "connectivity" } ],
-                                    retrievable         => JSON::false,
+                                    retrievable         => JSON::true,
                                     proactivelyReported => JSON::true
                                 }
                             },
@@ -339,30 +340,86 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
         $response .= JSON::XS::encode_json $response_package;
         return $response;
     }
-    elsif (
-        #******* the part below here still needs work********
-        #****************************************************
-        $json_text->{"header"}->{"namespace"} eq "Alexa.ConnectedHome.System"
-      )
-    {
-        if ( $json_text->{"header"}->{"name"} eq "HealthCheckRequest" ) {
-            my $response_data = {
-                header => {
-                    messageId      => lc( $guid->as_string ),
-                    name           => "HealthCheckResponse",
-                    namespace      => "Alexa.ConnectedHome.System",
-                    payloadVersion => "2"
-                },
-                payload => {
-                    description => "The system is currently healthy",
-                    isHealthy   => JSON::true
+    elsif ( $json_text->{"directive"}->{"header"}->{"namespace"} eq "Alexa" ) {
+        if ( $json_text->{"directive"}->{"header"}->{"name"} eq "ReportState" ) {
+            my $reqtoken = $json_text->{"directive"}->{"endpoint"}->{"scope"}->{"token"};
+
+            # compose the response to send back
+            my $response_data = { header => $json_text->{"directive"}->{"header"} };
+            $response_data->{"header"}->{"namespace"} = "Alexa";
+            $response_data->{"header"}->{"name"}      = "StateReport";
+            $response_data->{"header"}->{"messageId"} .= "-R";
+
+            my $obj = &get_object_by_name( $json_text->{"directive"}->{"endpoint"}->{"endpointId"} );
+            my ( $can_onoff, $can_percent ) = checkSupportedStates($obj);
+
+            my $context_result = {
+                properties => [
+                    {
+                        namespace                 => "Alexa.EndpointHealth",
+                        name                      => "connectivity",
+                        value                     => { value => "OK" },
+                        timeofsample              => $nowiso8601,
+                        uncertaintyInMilliseconds => "0"
+                    }
+                ]
+            };
+
+            my $state = $obj->state();
+
+            if ($can_onoff) {
+                my $astate = "ON";
+                if ( "off" eq lc($state) ) {
+                    $astate = "OFF";
+                }
+                my $atomic_context = {
+                    namespace                 => "Alexa.PowerController",
+                    name                      => "powerState",
+                    value                     => $astate,
+                    timeOfSample              => $nowiso8601,
+                    uncertaintyInMilliseconds => "5000"
+
+                };
+                push @{ $context_result->{"properties"} }, $atomic_context;
+            }
+            if ($can_percent) {
+                my $astate = $state;
+                if ( "on" eq lc($state) ) {
+                    $astate = "100";
+                }
+                elsif ( "off" eq lc($state) ) {
+                    $astate = "0";
+                }
+                else {
+                    $astate =~ s/\%//g;
+                }
+                my $atomic_context = {
+                    namespace                 => "Alexa.PercentageController",
+                    name                      => "percentage",
+                    timeOfSample              => $nowiso8601,
+                    value                     => $astate,
+                    uncertaintyInMilliseconds => "5000"
+
+                };
+                push @{ $context_result->{"properties"} }, $atomic_context;
+            }
+
+            my $response_package = {
+                context => $context_result,
+                event   => {
+                    header   => $response_data->{"header"},
+                    endpoint => {
+                        endpointId => $json_text->{"directive"}->{"endpoint"}->{"endpointId"},
+                        cookie     => {}
+                    },
+                    payload => {}
                 }
             };
 
             # Roll up the resoponse and send it back to Amazon
             my $response = "HTTP/1.0 200 OK\n";
             $response .= "Content-Type: application/json\n\n";
-            $response .= JSON::XS::encode_json $response_data;
+            $response .= JSON::XS::encode_json $response_package;
             return $response;
         }
         else {
