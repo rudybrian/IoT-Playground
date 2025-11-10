@@ -18,7 +18,7 @@ exports.handler = function(request, context) {
 
     log('Input', request);
 
-    if ((request.directive.header.namespace === 'Alexa.PowerController') || (request.directive.header.namespace === 'Alexa.Discovery') || (request.directive.header.namespace === 'Alexa.PercentageController') || (request.directive.header.namespace === 'Alexa.ReportState')) {
+    if ((request.directive.header.namespace === 'Alexa.PowerController') || (request.directive.header.namespace === 'Alexa.Discovery') || (request.directive.header.namespace === 'Alexa.PercentageController') || (request.directive.header.namespace === 'Alexa')) {
         handleNewRequest(request, context);
     } else {
         log('Err', 'No supported namespace: ' + request.directive.header.namespace);
