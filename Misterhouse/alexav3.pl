@@ -204,7 +204,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                     namespace                 => "Alexa.PowerController",
                     name                      => "powerState",
                     timeOfSample              => $nowiso8601,
-                    uncertaintyInMilliseconds => "50"
+                    uncertaintyInMilliseconds => "5000"
 
                 },
                 {
@@ -266,7 +266,7 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
                 {
                     namespace                 => "Alexa.PercentageController",
                     timeOfSample              => $nowiso8601,
-                    uncertaintyInMilliseconds => "50"
+                    uncertaintyInMilliseconds => "5000"
 
                 },
                 {
@@ -279,35 +279,29 @@ if ( defined $json_text->{"directive"}->{"header"}->{"namespace"} ) {
             ]
         };
 
-        if ( $reqname eq "SetPercentage" ) {
+        if ( ( $reqname eq "SetPercentage" ) || ( $reqname eq "AdjustPercentage" ) ) {
 
             # First check if we support percentage requests
             my ( $can_onoff, $can_percent ) = checkSupportedStates($obj);
             if ($can_percent) {
 
                 # Set the object to the nearest available percentage state
-                my $nearestpercent         = findNearestPercent( $obj, $json_text->{"directive"}->{"payload"}->{"percentage"} );
+                my $nearestpercent;
+                if ( $reqname eq "SetPercentage" ) {
+                    $nearestpercent = findNearestPercent( $obj, $json_text->{"directive"}->{"payload"}->{"percentage"} );
+                }
+                elsif ( $reqname eq "AdjustPercentage" ) {
+                    $nearestpercent = findNearestPercent( $obj, $json_text->{"directive"}->{"payload"}->{"percentageDelta"} );
+                }
+                set $obj $nearestpercent;
                 my $strippednearestpercent = $nearestpercent;
                 $strippednearestpercent =~ s/\%//g;
-                set $obj &findNearestPercent( $obj, $nearestpercent );
-                $context_result->{"properties"}->[0]->{"name"}  = "percentage";
-                $context_result->{"properties"}->[0]->{"value"} = $strippednearestpercent;
-            }
-            else {
-                # This device is unable to do percent requests, generate an error
-            }
-        }
-        elsif ( $reqname eq "AdjustPercentage" ) {
-
-            # First check if we support percentage requests
-            my ( $can_onoff, $can_percent ) = checkSupportedStates($obj);
-            if ($can_percent) {
-
-                # Set the object to the nearest available percentage state
-                my $nearestpercent         = findNearestPercent( $obj, $json_text->{"directive"}->{"payload"}->{"percentageDelta"} );
-                my $strippednearestpercent = $nearestpercent;
-                $strippednearestpercent =~ s/\%//g;
-                set $obj &findNearestPercent( $obj, $nearestpercent );
+                if ( "on" eq lc($strippednearestpercent) ) {
+                    $strippednearestpercent = 100;
+                }
+                elsif ( "off" eq lc($strippednearestpercent) ) {
+                    $strippednearestpercent = 0;
+                }
                 $context_result->{"properties"}->[0]->{"name"}  = "percentage";
                 $context_result->{"properties"}->[0]->{"value"} = $strippednearestpercent;
             }
@@ -468,6 +462,8 @@ sub findNearestPercent {
         foreach my $number (@numeric_states) {
             $itr++ and next if $percent >= $number;
         }
+
+        #main::print_log("Requested $percent, returning " . $states[ $itr - 1 ]);
         return $states[ $itr - 1 ];
     }
 }
